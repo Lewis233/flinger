@@ -102,6 +102,7 @@ uchar SZML=1;//unlock the vehicle
 MPU6050 accelgyro;
 HMC5883L compass;
 
+int status = 0;
 bool flag = 0;//to judge whether need ajust the compass or not
 bool flag_land = 0;//to judge whether the plane is returning
 int ax, ay, az;
@@ -123,13 +124,14 @@ void setup(){
 	pinMode(RING_FINGER, INPUT);
 	//Set the buzzer
   pinMode(BUZZER, OUTPUT);
+  digitalWrite(BUZZER,HIGH);
 
 	Wire.begin();
 
 	Serial.begin(9600);
 
 	// initialize MPU6050
-  Serial.println("Initializing I2C devices...");
+  //Serial.println("Initializing I2C devices...");
   accelgyro.initialize();
 	// verify connection
   Serial.println("Testing device connections...");
@@ -164,27 +166,30 @@ void setup(){
 
   adjust();
 	buff_init();
-  music3();
+  //music3();
 }
 
 void loop(){
 	accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-	int status = readSta();
+	status = readSta();
 	if(status == 0){
-		TxBuf[1] = 1;
-		nRF24L01_TX_Mode(TxBuf);//transmiss
+		SZML = 0;
+		sendWifi(10);//transmiss
 		delay(1);
 		nRF24L01_RX_Mode(RxBuf);//receive
 		delay(1);
 	}
 	else if(status == 1){
+		SZML = 1;
 		readCompass();
 	}
 		else if(status == 2){
+			SZML = 0;
 			if(az < 0){
 				ready_land();
 			}
 			else{
+				SZML = 1;
 				accelerate(calDep());
 			}
 		}
@@ -193,57 +198,57 @@ void loop(){
 void front(){
 	Serial.print("front\n");
 	TxBuf[6] = 148;
-	nRF24L01_TX_Mode(TxBuf);//transmiss
-	delay(100);
+	sendWifi(20);//transmiss
+	delay(50);
 	TxBuf[6] = 128;
-	nRF24L01_TX_Mode(TxBuf);//transmiss
+	sendWifi(20);//transmiss
 	delay(1);
 }
 
 void left(){
 	Serial.print("left\n");
 	TxBuf[5] = 108;
-	nRF24L01_TX_Mode(TxBuf);//transmiss
-	delay(100);
+	sendWifi(20);//transmiss
+	delay(50);
 	TxBuf[5] = 128;
-	nRF24L01_TX_Mode(TxBuf);//transmiss
+	sendWifi(20);//transmiss
 	delay(1);
 }
 
 void right(){
 	Serial.print("right\n");
 	TxBuf[5] = 148;
-	nRF24L01_TX_Mode(TxBuf);//transmiss
-	delay(100);
+	sendWifi(20);//transmiss
+	delay(50);
 	TxBuf[5] = 128;
-	nRF24L01_TX_Mode(TxBuf);//transmiss
+	sendWifi(20);//transmiss
 	delay(1);
 }
 
 void back(){
 	Serial.print("back\n");
 	TxBuf[6] = 108;
-	nRF24L01_TX_Mode(TxBuf);//transmiss
-	delay(100);
+	sendWifi(20);//transmiss
+	delay(50);
 	TxBuf[6] = 128;
-	nRF24L01_TX_Mode(TxBuf);//transmiss
+	sendWifi(20);//transmiss
 	delay(1);
 }
 
 void notpoint(){
 	Serial.print("notpoint\n");
-	nRF24L01_TX_Mode(TxBuf);//transmiss
+	sendWifi(10);//transmiss
 	delay(100);
 }
 
 void accelerate(float v){
 	Serial.print("The accelerator goes to ");
 	Serial.println(v);
-	char val = char(500 + v);
+	char val = char(100 + v);
 	TxBuf[2] = val/256;
 	TxBuf[3] = val%256;
-	nRF24L01_TX_Mode(TxBuf);//transmiss
-	delay(100);
+	sendWifi(20);//transmiss
+	delay(50);
 }
 
 char readSta(){
@@ -275,9 +280,9 @@ void readCompass(){
 
 //calculate the depression angle
 float calDep(){
-	float y = float(ay / 1000);
+	float x = float(ax / 1000);
 	float z = float(az / 1000);
-	float a = -asin(y/sqrt(y*y + z*z))/(2*3.14)*360;
+	float a = asin(x/sqrt(x*x + z*z))/(2*3.14)*360;
 	return (a - init_depre);
 }
 
@@ -334,7 +339,7 @@ float angle_ceil(float x){
 
 void adjust(){
 	Serial.println("Adusting the compass");
-  music2();
+  //music2();
 	int x_sum = 0;
 	int y_sum = 0;
 	int angle_length = 0;
@@ -361,9 +366,9 @@ void adjust(){
 	}
 	for(int l = 20; l >= 0; --l){
 		accelgyro.getMotion6(&az,&ay,&az,&gx,&gy,&gz);
-		float y = float(ay / 1000);
-		float z = float(az / 1000);
-		depre -= asin(y/sqrt(y*y + z*z))/(2*3.14)*360;
+		float x = ax / 1000.0;
+		float z = az / 1000.0;
+		depre += asin(x/sqrt(x*x + z*z))/(2*3.14)*360;
 		++depre_length;
 	}
 	init_depre = depre/depre_length;
@@ -372,22 +377,39 @@ void adjust(){
 }
 
 void ready_land(){
-	music1();
+	//music1();
 }
-
 
 void buff_init(){
 	TxBuf[0] = 0;
 	TxBuf[1] = 0;
 	TxBuf[2] = 0;
-	TxBuf[3] = 0;
+	TxBuf[3] = 50;
 	TxBuf[4] = 128;
 	TxBuf[5] = 128;
 	TxBuf[6] = 128;
 	TxBuf[7] = 0;
-	TxBuf[8] = 0;
-	TxBuf[9] = 0;
-	TxBuf[10] = 0;
+	TxBuf[8] = 125;
+	TxBuf[9] = 128;
+	TxBuf[10] = 128;
+}
+
+void sendWifi(char times){
+	TxBuf[1] = SZML;
+	for(char i = times; i > 0; --i){
+		if(SSLL > 253){SSLL = 0;}
+		++SSLL;
+		TxBuf[0] = SSLL;
+		nRF24L01_TX_Mode(TxBuf);
+		delay(1);
+		nRF24L01_RX_Mode(RxBuf);//receive
+		delay(1);
+		for(char k = 0; k < 12; ++k){
+    Serial.print(TxBuf[k]);
+    Serial.print(' ');
+		}
+   Serial.println();
+	}
 }
 
 uchar SPI_RW(uchar reg)
@@ -456,8 +478,6 @@ void SPI_Write_Buf(uchar reg, uchar *pBuf, uchar uchars)
 /**********************************************************************************************************/
 void nRF24L01_TX_Mode(unsigned char * TX_buf)
 {
-	if(SSLL > 253){SSLL = 0;}
-	TxBuf[0] = SSLL;
 	digitalWrite(CE, LOW);			//StandBy
 	SPI_Write_Buf(WRITE_REG + RX_ADDR_P0, RX_ADDRESS, ADR_WIDTH);
 	SPI_Write_Buf(WR_TX_PLOAD, TX_buf, PLOAD_WIDTH);
@@ -587,4 +607,3 @@ noTone(BUZZER);
 }
 digitalWrite(BUZZER, HIGH);
 }
-
