@@ -127,21 +127,21 @@ void setup(){
   digitalWrite(BUZZER,HIGH);
 
 	Wire.begin();
-
+  delay(2000);
 	Serial.begin(9600);
 
 	// initialize MPU6050
   //Serial.println("Initializing I2C devices...");
   accelgyro.initialize();
 	// verify connection
-  Serial.println("Testing device connections...");
-  Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+  //Serial.println("Testing device connections...");
+  //Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
 	// Initialize Initialize HMC5883L
-  Serial.println("Initialize HMC5883L");
+  //Serial.println("Initialize HMC5883L");
   while (!compass.begin())
   {
-    Serial.println("Could not find a valid HMC5883L sensor, check wiring!");
+    //Serial.println("Could not find a valid HMC5883L sensor, check wiring!");
     delay(500);
   }
 
@@ -164,19 +164,23 @@ void setup(){
 	nRF24L01_RX_Mode(RxBuf);//receive data and put it into RxBuf
 	delay(1);
 
-  adjust();
+	adjust();
 	buff_init();
-  //music3();
+	music3();
+
+ while(readSta == 0){
+  SZML = 0;
+  sendWifi(10);
+  delay(10);
+ }
 }
 
 void loop(){
 	accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 	status = readSta();
 	if(status == 0){
-		SZML = 0;
+		SZML = 3;
 		sendWifi(10);//transmiss
-		delay(1);
-		nRF24L01_RX_Mode(RxBuf);//receive
 		delay(1);
 	}
 	else if(status == 1){
@@ -184,9 +188,10 @@ void loop(){
 		readCompass();
 	}
 		else if(status == 2){
-			SZML = 0;
+			SZML = 1;
 			if(az < 0){
-				ready_land();
+				delay(50);
+				if(az < 0) ready_land();
 			}
 			else{
 				SZML = 1;
@@ -197,19 +202,15 @@ void loop(){
 
 void front(){
 	Serial.print("front\n");
-	TxBuf[6] = 148;
-	sendWifi(20);//transmiss
-	delay(50);
-	TxBuf[6] = 128;
+	TxBuf[5] = 188;
+  TxBuf[6] = 128;
 	sendWifi(20);//transmiss
 	delay(1);
 }
 
 void left(){
 	Serial.print("left\n");
-	TxBuf[5] = 108;
-	sendWifi(20);//transmiss
-	delay(50);
+	TxBuf[6] = 68;
 	TxBuf[5] = 128;
 	sendWifi(20);//transmiss
 	delay(1);
@@ -217,9 +218,7 @@ void left(){
 
 void right(){
 	Serial.print("right\n");
-	TxBuf[5] = 148;
-	sendWifi(20);//transmiss
-	delay(50);
+	TxBuf[6] = 188;
 	TxBuf[5] = 128;
 	sendWifi(20);//transmiss
 	delay(1);
@@ -227,28 +226,40 @@ void right(){
 
 void back(){
 	Serial.print("back\n");
-	TxBuf[6] = 108;
-	sendWifi(20);//transmiss
-	delay(50);
+	TxBuf[5] = 68;
 	TxBuf[6] = 128;
 	sendWifi(20);//transmiss
 	delay(1);
 }
 
 void notpoint(){
-	Serial.print("notpoint\n");
+	//Serial.print("notpoint\n");
+  TxBuf[5] = 128;
+  TxBuf[6] = 128;
 	sendWifi(10);//transmiss
-	delay(100);
+	delay(50);
 }
 
 void accelerate(float v){
-	Serial.print("The accelerator goes to ");
-	Serial.println(v);
-	char val = char(100 + v);
+	//Serial.print("The accelerator goes to ");
+	//Serial.println(v);
+	//Serial.print(v);
+	//Serial.print(' ');
+	int val = int(350 + 8*v);
+	if(val > 1000) val = 650;
+	if(val < 0) val = 0;
+	//Serial.print(val);
+  //Serial.print(' ');
 	TxBuf[2] = val/256;
 	TxBuf[3] = val%256;
+  TxBuf[5] = 128;
+  TxBuf[6] = 128;
+ //Serial.print(TxBuf[2]);
+ //Serial.print(' ');
+ //Serial.println(TxBuf[3]);
+ 
 	sendWifi(20);//transmiss
-	delay(50);
+	delay(1);
 }
 
 char readSta(){
@@ -264,7 +275,7 @@ char readSta(){
 void readCompass(){
 	Vector raw = compass.readRaw();//.XAxis .YAxis
   present_angle = angle_ceil(calAn(raw.XAxis, raw.YAxis) - init_angle);
-  Serial.print(present_angle);
+  //Serial.print(present_angle);
   if(angle_ceil(0-error) < present_angle || present_angle < angle_ceil(0+error))
 	  front();
 	else if(angle_ceil(90-error) < present_angle && present_angle < angle_ceil(90+error))
@@ -275,7 +286,7 @@ void readCompass(){
 					left();
 	else notpoint();
 
-	delay(400);
+	delay(1);
 }
 
 //calculate the depression angle
@@ -338,15 +349,15 @@ float angle_ceil(float x){
 }
 
 void adjust(){
-	Serial.println("Adusting the compass");
-  //music2();
+	//Serial.println("Adusting the compass");
+	music2();
 	int x_sum = 0;
 	int y_sum = 0;
 	int angle_length = 0;
 	//wait to be stable
 	for(int i = 20; i >= 0; --i){
 		Vector raw = compass.readRaw();//.XAxis .YAxis
-		Serial.println(calAn(raw.XAxis, raw.YAxis));
+		//Serial.println(calAn(raw.XAxis, raw.YAxis));
 		delay(100);
 	}
 	for(int j = 20; j >= 0; --j){
@@ -357,7 +368,7 @@ void adjust(){
 		delay(100);
 	}
 	init_angle = calAn(float(x_sum)/angle_length, float(y_sum)/angle_length);
-	Serial.println("Adjusting the accelerator");
+	//Serial.println("Adjusting the accelerator");
 	float depre = 0.0;
 	int depre_length = 0;
 	for(int k = 20; k >= 0; --k){
@@ -372,12 +383,16 @@ void adjust(){
 		++depre_length;
 	}
 	init_depre = depre/depre_length;
-	Serial.println(init_depre);
-	Serial.println("Adjustment finished");
+	//Serial.println(init_depre);
+	//Serial.println("Adjustment finished");
 }
 
 void ready_land(){
-	//music1();
+  TxBuf[5] = 128;
+  TxBuf[6] = 128;
+  sendWifi(20);
+	music1();
+	delay(5000);
 }
 
 void buff_init(){
@@ -389,8 +404,8 @@ void buff_init(){
 	TxBuf[5] = 128;
 	TxBuf[6] = 128;
 	TxBuf[7] = 0;
-	TxBuf[8] = 125;
-	TxBuf[9] = 128;
+	TxBuf[8] = 123;
+	TxBuf[9] = 117;
 	TxBuf[10] = 128;
 }
 
@@ -408,7 +423,7 @@ void sendWifi(char times){
     Serial.print(TxBuf[k]);
     Serial.print(' ');
 		}
-   Serial.println();
+    Serial.println();
 	}
 }
 
@@ -546,8 +561,9 @@ for(int x=0;x<length;x++)
 tone(BUZZER,tune[x]);
 delay(400*durt[x]);
 delay(100*durt[x]);
-digitalWrite(BUZZER, LOW);
+noTone(BUZZER);
 }
+digitalWrite(BUZZER,HIGH);
 }
 
 void music2(){
@@ -567,7 +583,6 @@ tone(BUZZER,tune[x]);
 delay(400*durt[x]);
 delay(100*durt[x]);
 noTone(BUZZER);
-
 }
 digitalWrite(BUZZER, HIGH);
 }
