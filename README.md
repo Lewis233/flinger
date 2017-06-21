@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+# flinger
+Using your fingers to control your unmanned vehicle.
+>>>>>>> origin/master
 #Flinger
 ##
 ######--control the unmanned vehical with your fingers
@@ -124,4 +129,8 @@ This function will send the data(stored in TxBuf[12]) to the UAV and receive a s
 1. The answer from the UAV is a little bit slow. So we need more powerful tool and better algorithm to improve the sensitivity.
 2. The controlling gestures are too monotonous, so we are thinking of more gestures to communicate wwith the UAV.
 3. The appearance is still very ugly.
+<<<<<<< HEAD
 4. Maybe we can make some changes on it and use it to control other appliances, like TV, air conditioner, fan and so on. Sounds cool, isn't it?
+=======
+4. Maybe we can make some changes and use it to control other appliances, like TV, air conditioner, fan and so on. Sounds cool, isn't it?
+>>>>>>> origin/master
